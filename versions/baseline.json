@@ -8,6 +8,10 @@
             "baseline": "2.4.2",
             "port-version": 1
         },
+        "fastcgi": {
+            "baseline": "2020-09-11",
+            "port-version": 5
+        },
         "fmt": {
             "baseline": "11.0.2",
             "port-version": 0
