@@ -59,6 +59,10 @@
         "vcpkg-cmake-get-vars": {
             "baseline": "2023-12-31",
             "port-version": 0
+        },
+        "yasm": {
+            "baseline": "1.3.0",
+            "port-version": 5
         }
     }
 }
