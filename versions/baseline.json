@@ -40,6 +40,10 @@
             "baseline": "3.3.2",
             "port-version": 1
         },
+        "pthread-stubs": {
+            "baseline": "0.4",
+            "port-version": 1
+        },
         "spdlog": {
             "baseline": "1.14.1",
             "port-version": 0
