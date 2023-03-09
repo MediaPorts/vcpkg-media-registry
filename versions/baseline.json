@@ -48,6 +48,10 @@
             "baseline": "0.2.2",
             "port-version": 1
         },
+        "libtasn1": {
+            "baseline": "4.19.0",
+            "port-version": 1
+        },
         "openssl": {
             "baseline": "3.3.2",
             "port-version": 1
