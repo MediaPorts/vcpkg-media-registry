@@ -24,6 +24,10 @@
             "baseline": "11.0.2",
             "port-version": 0
         },
+        "gettimeofday": {
+            "baseline": "2017-10-14",
+            "port-version": 6
+        },
         "gmp": {
             "baseline": "6.3.0",
             "port-version": 0
