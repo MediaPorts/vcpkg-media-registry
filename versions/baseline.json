@@ -84,6 +84,10 @@
             "baseline": "3.0.0",
             "port-version": 14
         },
+        "python3": {
+            "baseline": "3.11.8",
+            "port-version": 4
+        },
         "spdlog": {
             "baseline": "1.14.1",
             "port-version": 0
