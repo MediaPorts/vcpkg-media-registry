@@ -12,6 +12,10 @@
             "baseline": "2.4.2",
             "port-version": 1
         },
+        "cpu-features": {
+            "baseline": "0.9.0",
+            "port-version": 0
+        },
         "dbus": {
             "baseline": "1.15.8",
             "port-version": 5
