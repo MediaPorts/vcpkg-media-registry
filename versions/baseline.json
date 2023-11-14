@@ -1,5 +1,9 @@
 {
     "default": {
+        "avisynthplus": {
+            "baseline": "3.7.3",
+            "port-version": 0
+        },
         "benchmark": {
             "baseline": "1.9.0",
             "port-version": 0
