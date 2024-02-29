@@ -52,6 +52,10 @@
             "baseline": "2017-10-14",
             "port-version": 6
         },
+        "giflib": {
+            "baseline": "5.2.2",
+            "port-version": 0
+        },
         "gmp": {
             "baseline": "6.3.0",
             "port-version": 0
