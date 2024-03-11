@@ -40,6 +40,10 @@
             "baseline": "2020-09-11",
             "port-version": 5
         },
+        "ffnvcodec": {
+            "baseline": "12.1.14.0",
+            "port-version": 0
+        },
         "fmt": {
             "baseline": "11.0.2",
             "port-version": 0
