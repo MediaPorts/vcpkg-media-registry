@@ -56,6 +56,10 @@
             "baseline": "5.2.2",
             "port-version": 0
         },
+        "glib": {
+            "baseline": "2.78.4",
+            "port-version": 3
+        },
         "gmp": {
             "baseline": "6.3.0",
             "port-version": 0
