@@ -152,6 +152,10 @@
             "baseline": "3.3.2",
             "port-version": 1
         },
+        "pcre2": {
+            "baseline": "10.43",
+            "port-version": 0
+        },
         "pthread-stubs": {
             "baseline": "0.4",
             "port-version": 1
