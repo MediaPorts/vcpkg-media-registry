@@ -16,6 +16,10 @@
             "baseline": "1.0.8",
             "port-version": 6
         },
+        "cairo": {
+            "baseline": "1.18.0",
+            "port-version": 1
+        },
         "cli11": {
             "baseline": "2.4.2",
             "port-version": 1
