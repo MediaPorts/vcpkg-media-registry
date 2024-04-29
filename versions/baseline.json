@@ -1,5 +1,9 @@
 {
     "default": {
+        "amd-amf": {
+            "baseline": "1.4.33",
+            "port-version": 1
+        },
         "avisynthplus": {
             "baseline": "3.7.3",
             "port-version": 0
