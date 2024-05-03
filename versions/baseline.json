@@ -1,16 +1,20 @@
 {
-  "default": {
-    "libcexample": {
-      "baseline": "0.0.1",
-      "port-version": 0
-    },
-    "libcppexample": {
-      "baseline": "0.0.1",
-      "port-version": 0
-    },
-    "testexample": {
-      "baseline": "0.0.1",
-      "port-version": 0
+    "default": {
+        "libcexample": {
+            "baseline": "0.0.1",
+            "port-version": 0
+        },
+        "libcppexample": {
+            "baseline": "0.0.1",
+            "port-version": 0
+        },
+        "spdlog": {
+            "baseline": "1.14.1",
+            "port-version": 0
+        },
+        "testexample": {
+            "baseline": "0.0.1",
+            "port-version": 0
+        }
     }
-  }
 }
