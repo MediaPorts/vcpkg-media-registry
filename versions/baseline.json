@@ -1,5 +1,9 @@
 {
     "default": {
+        "alsa": {
+            "baseline": "1.2.11",
+            "port-version": 2
+        },
         "amd-amf": {
             "baseline": "1.4.33",
             "port-version": 1
