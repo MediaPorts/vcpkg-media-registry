@@ -252,6 +252,10 @@
             "baseline": "2023-12-31",
             "port-version": 0
         },
+        "vcpkg-get-python": {
+            "baseline": "2024-06-08",
+            "port-version": 0
+        },
         "vcpkg-pkgconfig-get-modules": {
             "baseline": "2024-04-03",
             "port-version": 0
