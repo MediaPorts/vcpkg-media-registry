@@ -132,6 +132,10 @@
             "baseline": "3.0.4",
             "port-version": 0
         },
+        "liblzma": {
+            "baseline": "5.6.2",
+            "port-version": 0
+        },
         "libmount": {
             "baseline": "2.40",
             "port-version": 0
