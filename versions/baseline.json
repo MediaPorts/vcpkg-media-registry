@@ -100,6 +100,10 @@
             "baseline": "1.3.14",
             "port-version": 4
         },
+        "gsasl": {
+            "baseline": "2.2.1",
+            "port-version": 0
+        },
         "harfbuzz": {
             "baseline": "9.0.0",
             "port-version": 0
