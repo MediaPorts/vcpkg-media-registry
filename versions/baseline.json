@@ -76,6 +76,10 @@
             "baseline": "1.1.0.20220925",
             "port-version": 0
         },
+        "gettext-libintl": {
+            "baseline": "0.22.5",
+            "port-version": 2
+        },
         "gettimeofday": {
             "baseline": "2017-10-14",
             "port-version": 6
