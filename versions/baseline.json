@@ -172,6 +172,10 @@
             "baseline": "0.2.2",
             "port-version": 1
         },
+        "libssh": {
+            "baseline": "0.10.6",
+            "port-version": 0
+        },
         "libtasn1": {
             "baseline": "4.19.0",
             "port-version": 1
