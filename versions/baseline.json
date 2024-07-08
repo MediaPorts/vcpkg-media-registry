@@ -112,6 +112,10 @@
             "baseline": "9.0.0",
             "port-version": 0
         },
+        "icu": {
+            "baseline": "74.2",
+            "port-version": 4
+        },
         "lcms": {
             "baseline": "2.14",
             "port-version": 0
