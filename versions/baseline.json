@@ -172,6 +172,10 @@
             "baseline": "0.2.2",
             "port-version": 1
         },
+        "libsrt": {
+            "baseline": "1.5.3",
+            "port-version": 2
+        },
         "libssh": {
             "baseline": "0.10.6",
             "port-version": 0
