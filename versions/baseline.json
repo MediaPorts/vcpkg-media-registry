@@ -164,6 +164,10 @@
             "baseline": "5.6.2",
             "port-version": 0
         },
+        "libmodplug": {
+            "baseline": "0.8.9.0",
+            "port-version": 13
+        },
         "libmount": {
             "baseline": "2.40",
             "port-version": 0
