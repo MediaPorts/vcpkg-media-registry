@@ -148,6 +148,10 @@
             "baseline": "1.10.2",
             "port-version": 0
         },
+        "libiconv": {
+            "baseline": "1.17",
+            "port-version": 4
+        },
         "libidn2": {
             "baseline": "2.3.7",
             "port-version": 1
