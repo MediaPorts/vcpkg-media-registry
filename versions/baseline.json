@@ -224,6 +224,10 @@
             "baseline": "4.4.36",
             "port-version": 1
         },
+        "mp3lame": {
+            "baseline": "3.100",
+            "port-version": 15
+        },
         "ncurses": {
             "baseline": "6.4",
             "port-version": 2
