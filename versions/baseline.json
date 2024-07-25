@@ -224,6 +224,10 @@
             "baseline": "4.4.36",
             "port-version": 1
         },
+        "lz4": {
+            "baseline": "1.10.0",
+            "port-version": 0
+        },
         "mp3lame": {
             "baseline": "3.100",
             "port-version": 15
