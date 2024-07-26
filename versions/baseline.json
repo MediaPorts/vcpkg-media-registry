@@ -248,6 +248,10 @@
             "baseline": "2022-12-04",
             "port-version": 3
         },
+        "openldap": {
+            "baseline": "2.5.18",
+            "port-version": 0
+        },
         "openssl": {
             "baseline": "3.3.2",
             "port-version": 1
