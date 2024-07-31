@@ -116,6 +116,10 @@
             "baseline": "74.2",
             "port-version": 4
         },
+        "krb5": {
+            "baseline": "1.21.3",
+            "port-version": 1
+        },
         "lcms": {
             "baseline": "2.14",
             "port-version": 0
