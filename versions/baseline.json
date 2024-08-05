@@ -192,6 +192,10 @@
             "baseline": "0.10.6",
             "port-version": 0
         },
+        "libsystemd": {
+            "baseline": "256.4",
+            "port-version": 0
+        },
         "libtasn1": {
             "baseline": "4.19.0",
             "port-version": 1
