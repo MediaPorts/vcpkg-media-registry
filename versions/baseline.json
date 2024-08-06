@@ -1,5 +1,9 @@
 {
     "default": {
+        "abseil": {
+            "baseline": "20240722.0",
+            "port-version": 0
+        },
         "alsa": {
             "baseline": "1.2.11",
             "port-version": 2
