@@ -1,0 +1,8 @@
+{
+  "default": {
+    "libdvdcss": {
+      "baseline": "1.4.2",
+      "port-version": 0
+    }
+  }
+}
