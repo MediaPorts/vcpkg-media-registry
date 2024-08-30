@@ -1,0 +1,5 @@
+https://github.com/microsoft/vcpkg-tool/releases
+2024-08-01
+fd884a0
+
+https://github.com/microsoft/vcpkg-tool/commit/fd884a0d390d12783076341bd43d77c3a6a15658
