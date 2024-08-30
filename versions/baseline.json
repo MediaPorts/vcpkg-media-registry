@@ -3,6 +3,7 @@
     "libcexample": {
       "baseline": "0.0.1",
       "port-version": 0
+<<<<<<< HEAD
     },
     "libcppexample": {
       "baseline": "0.0.1",
@@ -19,6 +20,8 @@
     "vcpkg-cmake-config": {
       "baseline": "2024-05-23",
       "port-version": 0
+=======
+>>>>>>> 685df8a ([libdvdcss] add 1.4.2 (d0b6a291) to versions)
     }
   }
 }
