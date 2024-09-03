@@ -328,6 +328,10 @@
             "baseline": "3.11.8",
             "port-version": 4
         },
+        "shiftmedia-libgnutls": {
+            "baseline": "3.8.4",
+            "port-version": 3
+        },
         "snappy": {
             "baseline": "1.2.1",
             "port-version": 0
