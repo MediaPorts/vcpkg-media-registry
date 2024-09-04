@@ -7,6 +7,10 @@
     "cppexample": {
       "baseline": "0.0.1",
       "port-version": 0
+    },
+    "testexample": {
+      "baseline": "0.0.1",
+      "port-version": 0
     }
   }
 }
