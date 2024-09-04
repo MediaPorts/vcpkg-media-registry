@@ -1,0 +1,17 @@
+{
+  "name": "libcexample",
+  "version-semver": "0.0.1",
+  "description": "C library example",
+  "homepage": "http://192.168.3.198/vcpkg_wtoe_registry/examples/libcexample.html",
+  "license": null,
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}
