@@ -1,10 +1,10 @@
 {
   "default": {
-    "cexample": {
+    "libcexample": {
       "baseline": "0.0.1",
       "port-version": 0
     },
-    "cppexample": {
+    "libcppexample": {
       "baseline": "0.0.1",
       "port-version": 0
     },
