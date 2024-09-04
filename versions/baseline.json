@@ -3,6 +3,10 @@
     "cexample": {
       "baseline": "0.0.1",
       "port-version": 0
+    },
+    "cppexample": {
+      "baseline": "0.0.1",
+      "port-version": 0
     }
   }
 }
