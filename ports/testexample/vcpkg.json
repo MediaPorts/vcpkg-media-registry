@@ -1,0 +1,19 @@
+{
+  "name": "testexample",
+  "version-semver": "0.0.1",
+  "description": "Executable example",
+  "homepage": "http://192.168.3.198/vcpkg_wtoe_registry/examples/testexample.html",
+  "license": null,
+  "dependencies": [
+    "libcexample",
+    "libcppexample",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}
