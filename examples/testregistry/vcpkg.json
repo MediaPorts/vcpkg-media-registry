@@ -1,0 +1,16 @@
+{
+  "dependencies": [
+    "libcexample",
+    "libcppexample"
+  ],
+  "overrides": [
+    {
+      "name": "libcexample",
+      "version": "0.0.1"
+    },
+    {
+      "name": "libcppexample",
+      "version": "0.0.1"
+    }
+  ]
+}
