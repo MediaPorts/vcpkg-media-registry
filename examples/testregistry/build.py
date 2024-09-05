@@ -1,16 +1,36 @@
 import argparse
 import collections
+import datetime
 import inspect
 import json
 import logging
 import os
 import platform
+import re
 import shutil
 import subprocess
 
 
-vcpkg_conf = collections.namedtuple('vcpkg_conf', ('repository', 'reference', 'baseline'))
-cli_args = collections.namedtuple('cli_args', ('vcpkg_root_dir', 'vcpkg_bootstrap', 'vcpkg_triplet', 'cmake_generate', 'cmake_build', 'config'))
+vcpkg_conf = collections.namedtuple(
+    'vcpkg_conf',
+    (
+        'repository',
+        'reference',
+        'baseline'
+    )
+)
+cli_args = collections.namedtuple(
+    'cli_args',
+    (
+        'vcpkg_root_dir',
+        'vcpkg_bootstrap',
+        'vcpkg_triplet',
+        'cmake_build_dir',
+        'cmake_generate',
+        'cmake_build',
+        'config'
+    )
+)
 
 
 
@@ -59,7 +79,7 @@ def default_triplet() -> str:
 def parse_cli_args() -> cli_args:
     logging.info(inspect.currentframe().f_code.co_name)
 
-    invalid_result = cli_args('', '', '', '', '', '')
+    invalid_result = cli_args('', '', '', '', '', '', '')
 
     arg_parser = argparse.ArgumentParser(description="vcpkg bootstrap/cmake generate/cmake build")
     
@@ -86,6 +106,14 @@ def parse_cli_args() -> cli_args:
         type=bool, 
         default=False, 
         help=f'fetch vcpkg and bootstrap it (default False)'
+    )
+    
+    default_build_dir = 'build'
+    arg_parser.add_argument(
+        '--cmake-build-dir', 
+        type=str, 
+        default=default_build_dir, 
+        help=f'set cmake build dir (default {default_build_dir})'
     )
     
     arg_parser.add_argument(
@@ -119,6 +147,7 @@ def parse_cli_args() -> cli_args:
         vcpkg_root_dir=args.vcpkg_root_dir,
         vcpkg_bootstrap=args.vcpkg_bootstrap,
         vcpkg_triplet=args.vcpkg_triplet,
+        cmake_build_dir=args.cmake_build_dir,
         cmake_generate=args.cmake_generate,
         cmake_build=args.cmake_build,
         config=args.config
@@ -200,24 +229,44 @@ def bootstrap_vcpkg(root_dir: str, conf: vcpkg_conf, triplet: str):
     os.chdir(cwd)
 
 
-def cmake_generate(vcpkg_root_dir: str, triplet: str):
+def record_git_info(build_dir: str, triplet: str):
+    commit_hash = shell(args=['git', 'log', '-1', '--pretty=format:%H'], stdout=subprocess.PIPE, text=True).stdout.strip()
+    commit_datetime = shell(args=['git', 'log', '-1', '--date=format:%Y-%m-%d %H:%M:%S', '--pretty=%ad'], stdout=subprocess.PIPE, text=True).stdout.strip()
+    commit_message = shell(args=['git', 'log', '-1', '--pretty=%s'], stdout=subprocess.PIPE, text=True).stdout.strip()
+    build_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    version_h_path = f'{build_dir}/{triplet}/version.h'
+    if os.path.exists(version_h_path) and os.path.isfile(version_h_path):
+        with open(version_h_path) as f:
+            text = f.read()
+
+        text = re.sub('GIT_COMMIT_HASH.*', f'GIT_COMMIT_HASH "{commit_hash}"', text, 1)
+        text = re.sub('GIT_COMMIT_DATE_TIME.*', f'GIT_COMMIT_DATE_TIME "{commit_datetime}"', text, 1)
+        text = re.sub('GIT_COMMIT_MESSAGE.*', f'GIT_COMMIT_MESSAGE "{commit_message}"', text, 1)
+        text = re.sub('BUILD_DATETIME.*', f'BUILD_DATETIME "{build_time}"', text, 1)
+
+        with open(version_h_path, mode='w') as f:
+            f.write(text)
+
+
+def cmake_generate(build_dir: str, vcpkg_root_dir: str, triplet: str):
     logging.info(inspect.currentframe().f_code.co_name)
 
     shell(args=[
         'cmake.exe' if 'windows' in triplet else 'cmake',
-        '-B', f'build/{triplet}',
+        '-B', f'{build_dir}/{triplet}',
         f'-DCMAKE_TOOLCHAIN_FILE={vcpkg_root_dir}/scripts/buildsystems/vcpkg.cmake',
         f'-DVCPKG_TARGET_TRIPLET={triplet}',
         f'-DVCPKG_HOST_TRIPLET={triplet}',
     ])
 
 
-def cmake_build(triplet: str, config: str):
+def cmake_build(build_dir: str, triplet: str, config: str):
     logging.info(inspect.currentframe().f_code.co_name)
 
     shell(args=[
         'cmake.exe' if 'windows' in triplet else 'cmake',
-        '--build', f'build/{triplet}',
+        '--build', f'{build_dir}/{triplet}',
         '--config', config
     ])
 
@@ -238,10 +287,12 @@ def main():
         bootstrap_vcpkg(root_dir=args.vcpkg_root_dir, conf=conf, triplet=args.vcpkg_triplet)
 
     if args.cmake_generate:
-        cmake_generate(vcpkg_root_dir=args.vcpkg_root_dir, triplet=args.vcpkg_triplet)
+        cmake_generate(build_dir=args.cmake_build_dir, vcpkg_root_dir=args.vcpkg_root_dir, triplet=args.vcpkg_triplet)
+
+    record_git_info(build_dir=args.cmake_build_dir, triplet=args.vcpkg_triplet)
 
     if args.cmake_build:
-        cmake_build(triplet=args.vcpkg_triplet, config=args.config)
+        cmake_build(build_dir=args.cmake_build_dir, triplet=args.vcpkg_triplet, config=args.config)
 
 
 if __name__ == "__main__":
