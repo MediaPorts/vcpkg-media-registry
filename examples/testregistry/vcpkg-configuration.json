@@ -2,7 +2,7 @@
   "default-registry": {
     "kind": "git",
     "reference": "wtoe",
-    "baseline": "c6761c2adaabf70afc66a50b41e082ddc6ed3fee",
+    "baseline": "0b2491ce5d3d10f1765cd064c617a4197a5642dd",
     "repository": "https://github.com/MediaPorts/vcpkg-media-registry"
   },
   "registries": [
