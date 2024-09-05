@@ -10,7 +10,7 @@ import subprocess
 
 
 vcpkg_conf = collections.namedtuple('vcpkg_conf', ('repository', 'reference', 'baseline'))
-cli_args = collections.namedtuple('cli_args', ('vcpkg_root_dir', 'vcpkg_bootstrap', 'vcpkg_triplet', 'cmake_generate', 'cmake_build'))
+cli_args = collections.namedtuple('cli_args', ('vcpkg_root_dir', 'vcpkg_bootstrap', 'vcpkg_triplet', 'cmake_generate', 'cmake_build', 'config'))
 
 
 
@@ -59,11 +59,11 @@ def default_triplet() -> str:
 def parse_cli_args() -> cli_args:
     logging.info(inspect.currentframe().f_code.co_name)
 
-    invalid_result = cli_args('', '', '', '', '')
+    invalid_result = cli_args('', '', '', '', '', '')
 
     arg_parser = argparse.ArgumentParser(description="vcpkg bootstrap/cmake generate/cmake build")
     
-    default_vcpkg_root_dir = os.path.abspath('../../')
+    default_vcpkg_root_dir = os.path.abspath('./vcpkg')
     arg_parser.add_argument(
         '--vcpkg-root-dir', 
         type=str, 
@@ -101,6 +101,13 @@ def parse_cli_args() -> cli_args:
         default=False, 
         help=f'cmake build (default False)'
     )
+    
+    arg_parser.add_argument(
+        '--config', 
+        type=str, 
+        default='Debug', 
+        help=f'cmake build config (default Debug)'
+    )
 
     args = arg_parser.parse_args()
 
@@ -113,7 +120,8 @@ def parse_cli_args() -> cli_args:
         vcpkg_bootstrap=args.vcpkg_bootstrap,
         vcpkg_triplet=args.vcpkg_triplet,
         cmake_generate=args.cmake_generate,
-        cmake_build=args.cmake_build
+        cmake_build=args.cmake_build,
+        config=args.config
     )
     
 
@@ -181,6 +189,8 @@ def bootstrap_vcpkg(root_dir: str, conf: vcpkg_conf, triplet: str):
     if platform.system() == 'Windows':
         current_tool += '.exe'
         prebuilt_tool += '.exe'
+    prebuilt_tool = prebuilt_tool.replace('-static', '')
+    prebuilt_tool = prebuilt_tool.replace('-dynamic', '')
     if not os.path.exists(current_tool):
         if os.path.exists(prebuilt_tool):
             shutil.copy(prebuilt_tool, current_tool)
@@ -202,12 +212,13 @@ def cmake_generate(vcpkg_root_dir: str, triplet: str):
     ])
 
 
-def cmake_build(triplet: str):
+def cmake_build(triplet: str, config: str):
     logging.info(inspect.currentframe().f_code.co_name)
 
     shell(args=[
         'cmake.exe' if 'windows' in triplet else 'cmake',
-        '--build', f'build/{triplet}'
+        '--build', f'build/{triplet}',
+        '--config', config
     ])
 
 
@@ -230,7 +241,7 @@ def main():
         cmake_generate(vcpkg_root_dir=args.vcpkg_root_dir, triplet=args.vcpkg_triplet)
 
     if args.cmake_build:
-        cmake_build(triplet=args.vcpkg_triplet)
+        cmake_build(triplet=args.vcpkg_triplet, config=args.config)
 
 
 if __name__ == "__main__":
