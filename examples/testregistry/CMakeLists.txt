@@ -1,12 +1,10 @@
-# CMake最低版本要求
 cmake_minimum_required(VERSION 3.20)
 
-# 项目名称，编程语言
 project(testregistry CXX)
 
 
 #######################################################################################################################
-# Visual Studio配置
+# Configure Visual Studio
 #######################################################################################################################
 if(MSVC)
     # utf-8 source code encoding
@@ -28,58 +26,40 @@ endif(MSVC)
 
 
 #######################################################################################################################
-# 检查 (类型于configure脚本)
+# Check
 #######################################################################################################################
-# 项目版本
+# version
 set(TEST_REGISTRY_VERSION_MAJOR 0)
 set(TEST_REGISTRY_VERSION_MINOR 0)
 set(TEST_REGISTRY_VERSION_MICRO 1)
 set(TEST_REGISTRY_VERSION "${TEST_REGISTRY_VERSION_MAJOR}.${TEST_REGISTRY_VERSION_MINOR}.${TEST_REGISTRY_VERSION_MICRO}")
 
-set(TEST_REGISTRY_GIT_COMMIT_HASH "aaaa")
-set(TEST_REGISTRY_GIT_COMMIT_DATE_TIME "bbbbb")
-set(TEST_REGISTRY_GIT_COMMIT_MESSAGE "ccccc")
-set(TEST_REGISTRY_BUILD_DATETIME "ddddd")
-
-# 导入CMake头文件检查
+# check headers
 include(CheckIncludeFiles)
-# 检查stdlib.h是否存在
 check_include_files("stdlib.h" HAVE_STDLIB_H)
 
-# 导入CMake数据类型长度检查
+# check types
 include(CheckTypeSize)
-# # 检查size_t长度并设置set_t类型
 # check_type_size(size_t SIZE_T)
-# if(NOT HAVE_SIZE_T)
-#   if("${CMAKE_SIZEOF_VOID_P}" EQUAL 8)
-#     set(size_t "uint64_t")
-#   else("${CMAKE_SIZEOF_VOID_P}" EQUAL 8)
-#     set(size_t   "uint32_t")
-#   endif("${CMAKE_SIZEOF_VOID_P}" EQUAL 8)
-# endif(NOT HAVE_SIZE_T)
 
-# 导入CMake函数检查
+# check functions
 include(CheckFunctionExists)
-# 检查gettimeofday是否存在
 check_function_exists(gettimeofday HAVE_GETTIMEOFDAY)
 
-# 导入CMake符号检查
+# check symbols
 include(CheckSymbolExists)
-# 检查O_BINARY是否存在
 check_symbol_exists(O_BINARY "fcntl.h" HAVE_O_BINARY)
 
 
 #######################################################################################################################
-# 包
+# Package
 #######################################################################################################################
-# 导入CMake包生成辅助
 include(CMakePackageConfigHelpers)
-# 配置包
 set(PACKAGE ${PROJECT_NAME})
 set(PACKAGE_NAME ${PROJECT_NAME})
 set(PACKAGE_STRING "${PROJECT_NAME} ${TEST_REGISTRY_VERSION}")
 set(PACKAGE_TARNAME ${PROJECT_NAME})
-set(PACKAGE_URL "http://192.168.3.198/vcpkg_wtoe_registry/examples/c_cpp_bin")
+set(PACKAGE_URL "http://192.168.3.198/vcpkg_wtoe_registry/examples/testregistry")
 set(PACKAGE_VERSION ${TEST_REGISTRY_VERSION})
 set(STDC_HEADERS 1)
 set(SUPPORT_ATTRIBUTE_VISIBILITY_DEFAULT 1)
@@ -88,19 +68,19 @@ set(VERSION ${TEST_REGISTRY_VERSION})
 
 
 #######################################################################################################################
-# 填充跨平台条件检查头文件和版本头文件
+# Generate platform config and version header according to check results
 #######################################################################################################################
-# 根据上面的configure结果和模板生成config.h
+# platform config.h
 configure_file(${CMAKE_SOURCE_DIR}/src/config.h.cm ${CMAKE_BINARY_DIR}/config.h)
 
-# 根据定义的版本和模板生成version.h
+# version.h
 configure_file(${CMAKE_SOURCE_DIR}/src/version.h.in ${CMAKE_BINARY_DIR}/version.h @ONLY)
 
 
 #######################################################################################################################
-# 源码
+# Sources
 #######################################################################################################################
-# 源码搜集
+# glob headers and sources
 FILE(GLOB_RECURSE HEADER_FILES_CONF
     ${CMAKE_BINARY_DIR}/config.h
     ${CMAKE_BINARY_DIR}/version.h
@@ -114,17 +94,17 @@ FILE(GLOB_RECURSE SOURCE_FILES_TEST
 FILE(GLOB_RECURSE SOURCE_FILES_MAIN
     "src/*.cpp"
 )
-# 源码归类
+# classify
 SOURCE_GROUP("headers/conf" FILES ${HEADER_FILES_CONF})
 SOURCE_GROUP("headers/test" FILES ${HEADER_FILES_TEST})
 SOURCE_GROUP("sources/test" FILES ${SOURCE_FILES_TEST})
 SOURCE_GROUP("sources/main" FILES ${SOURCE_FILES_MAIN})
 
-# 查找依赖
+# find deps
 find_package(libcexample CONFIG REQUIRED)
 find_package(libcppexample CONFIG REQUIRED)
 
-# 生成可执行文件
+# generate executable
 add_executable(${PROJECT_NAME}
     ${HEADER_FILES_CONF}
     ${HEADER_FILES_TEST}
@@ -132,14 +112,14 @@ add_executable(${PROJECT_NAME}
     ${SOURCE_FILES_MAIN}
 )
 
-# 指定头文件搜索位置
+# set include paths
 target_include_directories(${PROJECT_NAME}
   PRIVATE
   "src/headers"
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-# 链接指定库
+# link libraries
 target_link_libraries(
         ${PROJECT_NAME}
         PRIVATE
@@ -148,13 +128,11 @@ target_link_libraries(
 )
 
 if(MSVC)
-  # 宏定义
-  target_compile_definitions(${PROJECT_NAME}
-    PRIVATE 
-      _CRT_SECURE_NO_WARNINGS
-      PATH_MAX=1024
-  )
-  # Windows UWP库链接支持
+  # defines
+  add_definitions(-DPATH_MAX=1024)
+  add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+
+  # fix windows uwp link errors
   if(CMAKE_SYSTEM_NAME STREQUAL WindowsStore)
     set_target_properties(${PROJECT_NAME}
         PROPERTIES
@@ -167,9 +145,9 @@ endif()
 
 
 #######################################################################################################################
-# 安装
+# Support CMake find-package
 #######################################################################################################################
-# 安装lib和bin位置
+# install bin
 install(
     TARGETS ${PROJECT_NAME}
     EXPORT ${PROJECT_NAME}-targets

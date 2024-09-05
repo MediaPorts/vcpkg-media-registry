@@ -11,7 +11,7 @@
             #define LIBCEXAMPLE_API __declspec(dllimport)
         #endif
     #elif defined(__GNUC__) || defined(__clang__)
-        #define LIBCEXAMPLE_API extern "C" __attribute__((visibility("default")))
+        #define LIBCEXAMPLE_API __attribute__((visibility("default")))
     #else
         #define LIBCEXAMPLE_API
     #endif
