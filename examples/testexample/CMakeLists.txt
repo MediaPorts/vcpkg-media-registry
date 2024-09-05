@@ -119,6 +119,12 @@ target_include_directories(${PROJECT_NAME}
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+# add executable directory to deps search paths
+set(CMAKE_SKIP_BUILD_RPATH FALSE) 
+set(CMAKE_INSTALL_RPATH "\$ORIGIN")
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # link libraries
 target_link_libraries(
         ${PROJECT_NAME}
