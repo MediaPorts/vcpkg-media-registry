@@ -316,6 +316,10 @@
             "baseline": "3.3.2",
             "port-version": 1
         },
+        "opus": {
+            "baseline": "1.5.2",
+            "port-version": 0
+        },
         "pcre2": {
             "baseline": "10.43",
             "port-version": 0
