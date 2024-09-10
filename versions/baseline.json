@@ -68,6 +68,10 @@
             "baseline": "2024-01-25",
             "port-version": 0
         },
+        "expat": {
+            "baseline": "2.6.3",
+            "port-version": 0
+        },
         "fastcgi": {
             "baseline": "2020-09-11",
             "port-version": 5
