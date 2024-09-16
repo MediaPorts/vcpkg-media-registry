@@ -152,6 +152,10 @@
             "baseline": "4.0.4",
             "port-version": 0
         },
+        "libarchive": {
+            "baseline": "3.7.5",
+            "port-version": 0
+        },
         "libass": {
             "baseline": "0.17.3",
             "port-version": 0
