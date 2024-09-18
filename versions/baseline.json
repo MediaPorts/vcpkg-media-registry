@@ -400,6 +400,10 @@
             "baseline": "0.0.1",
             "port-version": 0
         },
+        "tiff": {
+            "baseline": "4.6.0",
+            "port-version": 5
+        },
         "vcpkg-cmake": {
             "baseline": "2024-04-23",
             "port-version": 0
