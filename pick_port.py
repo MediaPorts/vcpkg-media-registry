@@ -270,16 +270,22 @@ class VcpkgGitPicker:
         try:
             git_config[remote_msft_key]
         except Exception as _:
+            # add remote
             shell(args=['git', 'remote', 'add', remote, self._args.msft_vcpkg_url])
+            # fetch remote branch
             shell(args=['git', 'fetch', remote, self._args.msft_vcpkg_branch])
 
         try:
             git_config[branch_msft_key]
         except Exception as _:
+            # new branch
             shell(args=['git', 'checkout', '-b', branch, f'{remote}/{self._args.msft_vcpkg_branch}'])
-            shell(args=['git', 'reset', '--hard', self._args.msft_vcpkg_baseline])
         else:
+            # switch branch
             shell(args=['git', 'checkout', branch])
+
+        # reset to version
+        shell(args=['git', 'reset', '--hard', self._args.msft_vcpkg_baseline])
 
     # find port from output text
     def find_port(self, output) -> str:
@@ -340,14 +346,20 @@ class VcpkgGitPicker:
         with open(self._path_builder.baseline_json()) as f:
             msft_versions = json.load(f)['default']
         
+        # switch to my branch
         shell(args=['git', 'checkout', self._args.my_vcpkg_branch])
 
         # read my vcpkg baseline versions
         with open(self._path_builder.baseline_json()) as f:
             my_versions = json.load(f)['default']
 
+        # read exists commits
+        exists_commits = set(shell(args=['git', 'log', '--pretty=format:"%H"'], stdout=subprocess.PIPE, text=True).stdout.strip().split())
+
         # cherry-pick commit by commit
         for commit in necessary_commits:
+            if commit.hash in exists_commits:
+                continue
             info = shell(
                 silent=True, env=RUN_GIT_ENV, stdout=subprocess.PIPE, text=True,
                 args=['git', 'log', '-1', '--stat', '--date=iso', commit.hash]
