@@ -5,6 +5,7 @@ import copy
 import inspect
 import json
 import logging
+import re
 import os
 import subprocess
 
@@ -226,6 +227,9 @@ class VcpkgGitParser:
 class VcpkgGitPicker:
     def __init__(self, args: cli_args):
         self._args = args
+        self._path_builder = VcpkgPathBuilder()
+        self._data_parser = VcpkgDataParser(self._path_builder)
+        self._git_parser = VcpkgGitParser(self._path_builder)
 
     def update_msft(self):
         logging.info(inspect.currentframe().f_code.co_name)
@@ -253,23 +257,52 @@ class VcpkgGitPicker:
             shell(args=['git', 'checkout', branch])
 
     def cherry_pick(self):
-        msft_path_builder = VcpkgPathBuilder()
-        msft_data_parser = VcpkgDataParser(msft_path_builder)
-        msft_git_parser = VcpkgGitParser(msft_path_builder)
+        necessary_ports = self._data_parser.find_necessary(self._args.pick_port)
+        necessary_commits = self._git_parser.find_ordered_necessary_commits(necessary_ports)
 
-        necessary_ports = msft_data_parser.find_necessary(self._args.pick_port)
-        necessary_commits = msft_git_parser.find_ordered_necessary_commits(necessary_ports)
+        with open(self._path_builder.baseline_json()) as f:
+            msft_versions = json.load(f)['default']
         
         shell(args=['git', 'checkout', self._args.my_vcpkg_branch])
+
+        with open(self._path_builder.baseline_json()) as f:
+            my_versions = json.load(f)['default']
 
         for commit in necessary_commits:
             info = shell(
                 silent=True, env=RUN_GIT_ENV, stdout=subprocess.PIPE, text=True,
                 args=['git', 'log', '-1', '--stat', '--date=iso', commit.hash]
             ).stdout
-            logging.info(info)
 
-            shell(args=['git', 'cherry-pick', commit.hash])
+            matches = re.search('ports/(.*)/', info)
+            if not matches:
+                matches = re.search('versions/[0-1a-z]\-/(.*)\.json', info)
+            port = matches.group(1)
+
+            logging.info('%s\n%s', port, info)
+
+            sh = shell(args=['git', 'cherry-pick', commit.hash], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            output = f'{sh.stdout.strip()}\n{sh.stderr.strip()}'
+            if 'CONFLICT' in output:
+                my_versions[port] = msft_versions[port]
+                with open(self._path_builder.baseline_json(), 'w') as f:
+                    json.dump(my_versions, f, sort_keys=True, indent=4)
+
+                adds = [
+                    f'{self._path_builder.port(port)}/*',
+                    self._path_builder.versions_json(port),
+                    self._path_builder.baseline_json()
+                ]
+                
+                removes = []
+                for line in output.split('\n'):
+                    line = line.strip()
+                    if port not in line:
+                        removes.append(port)
+                
+                shell(args=['git', 'rm', ' '.join(removes)])
+                shell(args=['git', 'add', ' '.join(adds)])
+                shell(args=['git', 'cherry-pick', '--continue'])
 
 
 def main():
