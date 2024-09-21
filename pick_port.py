@@ -292,9 +292,9 @@ class VcpkgGitPicker:
         for line in output.split('\n'):
             if not re.search(r'(\S+)\s+\|\s+(\d+)\s+([\+\-]+)', line):
                 continue
-            matches = re.search(r'ports/(.*)/', output)
+            matches = re.search(r'ports/(.*?)/', line)
             if not matches:
-                matches = re.search(r'versions/[0-1a-z]-/(.*)\.json', output)
+                matches = re.search(r'versions/[0-1a-z]-/(.*)\.json', line)
             if matches:
                 return matches.group(1)
         return ''
@@ -316,7 +316,7 @@ class VcpkgGitPicker:
         # removes = []
         if 'CONFLICT' in output:
             shell(args=['git', 'add', '.'])
-            shell(args=['git', 'cherry-pick', '--continue'])
+            shell(args=['git', 'cherry-pick', '--continue', '--no-edit'])
         #     stdout = shell(args=['git', 'status'], stdout=subprocess.PIPE, text=True).stdout.strip()
         #     for line in stdout.split('\n'):
         #         if 'deleted' in line or 'modified' in line:
