@@ -1,28 +1,45 @@
 import argparse
+import collections
+import configparser
+import copy
 import inspect
 import json
 import logging
 import os
-import shutil
 import subprocess
 
 
+MY_BRANCH = 'main'
+MSFT_BRANCH = 'msft'
 
-VCPKG_JSON = 'vcpkg.json'
-
-MY_VCPKG_PORTS_DIR = 'ports'
-MY_VCPKG_VERSIONS_DIR = 'versions'
-MY_VCPKG_VERSIONS_BASELINE_JSON = f'{MY_VCPKG_VERSIONS_DIR}/baseline.json'
-
-MICROSOFT_VCPKG_ROOT_DIR = 'downloads/vcpkg'
 MICROSOFT_VCPKG_URL = 'https://github.com/microsoft/vcpkg.git'
 MICROSOFT_VCPKG_BRANCH = 'master'
 MICROSOFT_VCPKG_BASELINE = '91f002cae2281636da5155efc5a11d67efa72415'
-MICROSOFT_VCPKG_PORTS_DIR = f'{MICROSOFT_VCPKG_ROOT_DIR}/{MY_VCPKG_PORTS_DIR}'
-MICROSOFT_VCPKG_VERSIONS_DIR = f'{MICROSOFT_VCPKG_ROOT_DIR}/{MY_VCPKG_VERSIONS_DIR}'
-MICROSOFT_VCPKG_VERSIONS_BASELINE_JSON = f'{MICROSOFT_VCPKG_ROOT_DIR}/{MY_VCPKG_VERSIONS_BASELINE_JSON}'
 
-EXIST_PORTS = set()
+RUN_GIT_ENV = {'TZ': 'Asia/Shanghai'}
+
+EXIST_COMMITS = set()
+
+
+git_commit_info_data = collections.namedtuple(
+    'get_commit_info',
+    (
+        'hash',
+        'datetime'
+    )
+)
+
+
+cli_args = collections.namedtuple(
+    'cli_args',
+    (
+        'msft_vcpkg_url',
+        'msft_vcpkg_branch',
+        'msft_vcpkg_baseline',
+        'my_vcpkg_branch',
+        'pick_port'
+    )
+)
 
 
 def setup_logger():
@@ -54,141 +71,219 @@ def setup_logger():
     logger.addHandler(handler)
 
 
-def parse_cli_args() -> str:
+def parse_cli_args() -> cli_args:
     logging.info(inspect.currentframe().f_code.co_name)
 
-    arg_parser = argparse.ArgumentParser(description="pick port from microsoft vcpkg")
-    
+    arg_parser = argparse.ArgumentParser(description="pick port from microsoft/vcpkg")
+        
     arg_parser.add_argument(
-        '--port', 
-        type=str, 
-        help=f'port name'
+        '--msft-vcpkg-url',
+        type=str,
+        default=MICROSOFT_VCPKG_URL,
+        help=f'microsoft/vcpkg git url (default: {MICROSOFT_VCPKG_URL})'
+    )
+
+    arg_parser.add_argument(
+        '--msft-vcpkg-branch',
+        type=str,
+        default=MICROSOFT_VCPKG_BRANCH,
+        help=f'microsoft/vcpkg git branch (default: {MICROSOFT_VCPKG_BRANCH})'
+    )
+
+    arg_parser.add_argument(
+        '--msft-vcpkg-baseline',
+        type=str,
+        default=MICROSOFT_VCPKG_BASELINE,
+        help=f'microsoft/vcpkg git baseline (default: {MICROSOFT_VCPKG_BASELINE})'
+    )
+
+    arg_parser.add_argument(
+        '--my-vcpkg-branch',
+        type=str,
+        default=MY_BRANCH,
+        help=f'my vcpkg git branch (default: {MY_BRANCH})'
+    )
+
+    arg_parser.add_argument(
+        '--pick-port',
+        type=str,
+        help=f'port name to pick from microsoft/vcpkg'
     )
 
     args = arg_parser.parse_args()
-    return args.port
+
+    return cli_args(
+        msft_vcpkg_url=args.msft_vcpkg_url, msft_vcpkg_branch=args.msft_vcpkg_branch,
+        msft_vcpkg_baseline=args.msft_vcpkg_baseline, my_vcpkg_branch=args.my_vcpkg_branch, pick_port=args.pick_port
+    )
 
 
-def shell(args, **kwargs):
-    logging.info('run: %s', ' '.join(args))
+def shell(args, silent=False, **kwargs):
+    if not silent:
+        logging.info('run: %s', ' '.join(args))
     return subprocess.run(args=args, **kwargs)
 
 
-def update_github_microsoft_vcpkg():
-    logging.info(inspect.currentframe().f_code.co_name)
+class VcpkgPathBuilder:
+    def __init__(self):
+        self._vcpkg_json_name = 'vcpkg.json'
+        self._ports_dir_name = 'ports'
+        self._versions_dir_name = 'versions'
+        self._baseline_json_name = 'baseline.json'
 
-    cwd = os.getcwd()
+    def ports(self) -> str:
+        return f'{self._ports_dir_name}'
 
-    os.makedirs(os.path.dirname(MICROSOFT_VCPKG_ROOT_DIR), exist_ok=True)
-    if not os.path.exists(MICROSOFT_VCPKG_ROOT_DIR):
-        # clone
-        shell(args=['git', 'clone', MICROSOFT_VCPKG_URL, MICROSOFT_VCPKG_ROOT_DIR])
-        os.chdir(MICROSOFT_VCPKG_ROOT_DIR)
-    else:
-        # fetch
-        os.chdir(MICROSOFT_VCPKG_ROOT_DIR)
-        shell(args=['git', 'fetch'])
+    def port(self, port) -> str:
+        return f'{self._ports_dir_name}/{port}'
 
-    # switch branch
-    current_branch = shell(args=['git', 'rev-parse', '--abbrev-ref', 'HEAD'], stdout=subprocess.PIPE, text=True).stdout.strip()
-    if MICROSOFT_VCPKG_BRANCH != current_branch:
-        shell(args=['git', 'checkout', MICROSOFT_VCPKG_BRANCH])
+    def vcpkg_json(self, port: str) -> str:
+        return f'{self._ports_dir_name}/{port}/{self._vcpkg_json_name}'
 
-    # reset
-    git_status = shell(args=['git', 'status', '--porcelain'], stdout=subprocess.PIPE, text=True).stdout.strip()
-    if git_status != '':
-        shell(args=['git', 'stash'])
-    shell(args=['git', 'reset', '--hard', MICROSOFT_VCPKG_BASELINE])
-    if git_status != '':
-        shell(args=['git', 'stash', 'pop'])
+    def versions_json(self, port: str) -> str:
+        return f'{self._versions_dir_name}/{port[:1]}-/{port}.json'
 
-    os.chdir(cwd)
+    def baseline_json(self) -> str:
+        return f'{self._versions_dir_name}/{self._baseline_json_name}'
 
 
-def pick_sub_port(port, commit=False):
-    # pick dependencies
-    with open(f'{MICROSOFT_VCPKG_PORTS_DIR}/{port}/{VCPKG_JSON}') as f:
-        for dep in json.load(f).get('dependencies', []):
-            name = dep if isinstance(dep, str) else dep['name']
-            if name in EXIST_PORTS:
-                return
-            pick_sub_port(name)
+class VcpkgDataParser:
+    def __init__(self, path_builder: VcpkgPathBuilder):
+        self._path_builder = path_builder
+
+    def find_necessary(self, port: str) -> set:
+        results = set()
+        results.add(port)
+
+        self._find_necessary(port=port, results=results)
+
+        logging.warning(
+            '%s has %d necessary ports: %s',
+            port, len(results), json.dumps(list(sorted(results)))
+        )
+
+        return results
+
+    def _find_necessary(self, port: str, results: set):
+        path = self._path_builder.vcpkg_json(port)
+        if not os.path.exists(path) or not os.path.isfile(path):
+            logging.error('%s not found', path)
+            return
+
+        old = copy.deepcopy(results)
+
+        with open(path) as f:
+            data = json.load(f)
+            for dep in data.get('dependencies', []):
+                results.add(dep if isinstance(dep, str) else dep['name'])
+            for (_, feature_deps) in data.get('features', {}).items():
+                for dep in feature_deps.get('dependencies', []):
+                    results.add(dep if isinstance(dep, str) else dep['name'])
+
+        update = results - old
+        for dep in update:
+            self._find_necessary(port=dep, results=results)
+
+
+
+class VcpkgGitParser:
+    def __init__(self, path_builder: VcpkgPathBuilder):
+        self._path_builder = path_builder
+
+    def find_ordered_necessary_commits(self, ports: set) -> list:
+        results = set()
+
+        for port in ports:
+            results.add(self.get_commit_info(path=self._path_builder.port(port)))
+            results.add(self.get_commit_info(path=self._path_builder.versions_json(port)))
+
+        return list(sorted(results, key=lambda t: t.datetime))
         
-    # skip exists
-    if port in EXIST_PORTS:
-        return
-    if os.path.exists(f'{MY_VCPKG_PORTS_DIR}/{port}/{VCPKG_JSON}'):
-        EXIST_PORTS.add(port)
-        return
-
-    logging.info('%s(%s)', inspect.currentframe().f_code.co_name, port)
-
-    # pick port's version in baseline from microsoft vcpkg
-    version = {}
-    with open(MICROSOFT_VCPKG_VERSIONS_BASELINE_JSON) as f:
-        for (k, v) in json.load(f)['default'].items():
-            if k == port:
-                version = v
-
-    if len(version) == 0:
-        logging.error('%s was not found in %s', port, MICROSOFT_VCPKG_VERSIONS_BASELINE_JSON)
-
-    # update port's version in baseline to my vcpkg
-    with open(MY_VCPKG_VERSIONS_BASELINE_JSON) as f:
-        data = json.load(f)
-    with open(MY_VCPKG_VERSIONS_BASELINE_JSON, mode='w') as f:
-        data['default'][port] = version
-        json.dump(data, f, indent=4, ensure_ascii=True, sort_keys=True)
-
-    # copy port's data
-    if os.path.exists(f'{MY_VCPKG_PORTS_DIR}/{port}'):
-        shutil.rmtree(f'{MY_VCPKG_PORTS_DIR}/{port}')
-    shutil.copytree(f'{MICROSOFT_VCPKG_PORTS_DIR}/{port}', f'{MY_VCPKG_PORTS_DIR}/{port}')
-
-    # copy port's version
-    prefix = f'{port[:1]}-'
-    os.makedirs(f'{MY_VCPKG_VERSIONS_DIR}/{prefix}', exist_ok=True)
-    shutil.copyfile(f'{MICROSOFT_VCPKG_VERSIONS_DIR}/{prefix}/{port}.json', f'{MY_VCPKG_VERSIONS_DIR}/{prefix}/{port}.json')
-
-    if commit:
-        # pick port's git commit message
+    def get_commit_info(self, path: str) -> git_commit_info_data:
         cwd = os.getcwd()
-        os.chdir(f'{MICROSOFT_VCPKG_PORTS_DIR}/{port}')
-        commit_message = shell(args=['git', 'log', '-1', '--pretty=%s', '--', '.'], stdout=subprocess.PIPE, text=True).stdout.strip()
-        os.chdir(cwd)
-        shell(args=['git', 'add', '-f', f'{MY_VCPKG_PORTS_DIR}/{port}/*', MY_VCPKG_VERSIONS_BASELINE_JSON, f'{MY_VCPKG_VERSIONS_DIR}/{prefix}/{port}.json'])
-        shell(args=['git', 'commit', '-m', commit_message])
+        if os.path.isfile(path):
+            os.chdir(os.path.dirname(path))
+            target = os.path.basename(path)
+        else:
+            os.chdir(path)
+            target = '.'
 
+        commit_hash = shell(
+            silent=True, stdout=subprocess.PIPE, text=True,
+            args=['git', 'log', '-1', '--pretty=format:%H', target]
+        ).stdout.strip()
+        commit_datetime = shell(
+            silent=True, env=RUN_GIT_ENV, stdout=subprocess.PIPE, text=True,
+            args=['git', 'log', '-1', '--date=format:%Y-%m-%d %H:%M:%S', '--pretty=%ad', '--date=iso', target]
+        ).stdout.strip()
 
-def pick_port_microsoft_vcpkg(port):
-    prefix = f'{port[:1]}-'
+        if cwd != os.getcwd():
+            os.chdir(cwd)
 
-    # like boost
-    if port.endswith('*'):
-        for name in os.listdir(MICROSOFT_VCPKG_PORTS_DIR):
-            pick_sub_port(name, False)
-            shell(args=['git', 'add', '-f', f'{MY_VCPKG_PORTS_DIR}/{port}/*', MY_VCPKG_VERSIONS_BASELINE_JSON, f'{MY_VCPKG_VERSIONS_DIR}/{prefix}/{port}.json'])
-        # pick port's git commit message
-        cwd = os.getcwd()
-        os.chdir(f'{MICROSOFT_VCPKG_PORTS_DIR}/{port.rstrip("*")}')
-        commit_message = shell(args=['git', 'log', '-1', '--pretty=%s', '--', '.'], stdout=subprocess.PIPE, text=True).stdout.strip()
-        os.chdir(cwd)
-        shell(args=['git', 'commit', '-m', commit_message])
+        return git_commit_info_data(hash=commit_hash, datetime=commit_datetime)
+    
 
-    # pick
-    pick_sub_port(port, True)
+class VcpkgGitPicker:
+    def __init__(self, args: cli_args):
+        self._args = args
+
+    def update_msft(self):
+        logging.info(inspect.currentframe().f_code.co_name)
+        
+        remote = MSFT_BRANCH
+        branch = remote
+        remote_msft_key = f'remote "{remote}"'
+        branch_msft_key = f'branch "{branch}"'
+
+        git_config = configparser.ConfigParser()
+        git_config.read('.git/config')
+
+        try:
+            git_config[remote_msft_key]
+        except Exception as _:
+            shell(args=['git', 'remote', 'add', remote, self._args.msft_vcpkg_url])
+            shell(args=['git', 'fetch', remote, self._args.msft_vcpkg_branch])
+
+        try:
+            git_config[branch_msft_key]
+        except Exception as _:
+            shell(args=['git', 'checkout', '-b', branch, f'{remote}/{self._args.msft_vcpkg_branch}'])
+            shell(args=['git', 'reset', '--hard', self._args.msft_vcpkg_baseline])
+        else:
+            shell(args=['git', 'checkout', branch])
+
+    def cherry_pick(self):
+        msft_path_builder = VcpkgPathBuilder()
+        msft_data_parser = VcpkgDataParser(msft_path_builder)
+        msft_git_parser = VcpkgGitParser(msft_path_builder)
+
+        necessary_ports = msft_data_parser.find_necessary(self._args.pick_port)
+        necessary_commits = msft_git_parser.find_ordered_necessary_commits(necessary_ports)
+        
+        shell(args=['git', 'checkout', self._args.my_vcpkg_branch])
+
+        for commit in necessary_commits:
+            info = shell(
+                silent=True, env=RUN_GIT_ENV, stdout=subprocess.PIPE, text=True,
+                args=['git', 'log', '-1', '--stat', '--date=iso', commit.hash]
+            ).stdout
+            logging.info(info)
+
+            shell(args=['git', 'cherry-pick', commit.hash])
 
 
 def main():
     setup_logger()
     
-    port = parse_cli_args()
-    if port == '':
+    args = parse_cli_args()
+    if args.pick_port == '':
+        logging.error('please input port name with --pick-port option')
         return
+    logging.info(args)
 
-    update_github_microsoft_vcpkg()
-
-    pick_port_microsoft_vcpkg(port)
+    picker = VcpkgGitPicker(args)
+    picker.update_msft()
+    picker.cherry_pick()
 
 
 if __name__ == '__main__':
