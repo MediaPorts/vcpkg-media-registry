@@ -295,19 +295,19 @@ class VcpkgGitPicker:
     
     # auto fix conflicts
     def fix_conflicts(self, my_versions, msft_versions, port, output):
-        def is_port_files(port, line) -> bool:
-            return any((
-                self._path_builder.baseline_json() in line,
-                self._path_builder.versions_json(port) in line,
-                line.startswith(self._path_builder.port(port))
-            ))
+        # def is_port_files(port, line) -> bool:
+        #     return any((
+        #         self._path_builder.baseline_json() in line,
+        #         self._path_builder.versions_json(port) in line,
+        #         line.startswith(self._path_builder.port(port))
+        #     ))
 
         my_versions[port] = msft_versions[port]
         with open(self._path_builder.baseline_json(), 'w') as f:
-            json.dump(my_versions, f, sort_keys=True, indent=4)
+            json.dump({'default': my_versions}, f, sort_keys=True, indent=4)
         
-        adds = [self._path_builder.baseline_json()]
-        removes = []
+        # adds = [self._path_builder.baseline_json()]
+        # removes = []
         if 'CONFLICT' in output:
             shell(args=['git', 'add', '.'])
             shell(args=['git', 'cherry-pick', '--continue'])
