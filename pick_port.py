@@ -12,7 +12,7 @@ import subprocess
 
 
 # my branch name
-MY_BRANCH = 'main'
+MY_BRANCH = 'wtoe'
 
 # default microsoft/vcpkg git clone dir
 MICROSOFT_VCPKG_ROOT_DIR = 'downloads/vcpkg'
@@ -53,25 +53,27 @@ CliArgs = collections.namedtuple(
 )
 
 
+# logger ansi color
+class Color:
+    INFO = "\033[94m"  # Light Blue
+    WARNING = "\033[93m"  # Yellow
+    ERROR = "\033[91m"  # Red
+    RESET = "\033[0m"  # Reset to default
+
+# logger formatter
+class ColoredFormatter(logging.Formatter):
+    def format(self, record):
+        if record.levelno >= logging.ERROR:
+            record.msg = f"{Color.ERROR}{record.msg}{Color.RESET}"
+        elif record.levelno >= logging.WARNING:
+            record.msg = f"{Color.WARNING}{record.msg}{Color.RESET}"
+        else:
+            record.msg = f"{Color.INFO}{record.msg}{Color.RESET}"
+        
+        return super().format(record)
+
 # configure stdout logger
 def setup_logger():
-    class ColoredFormatter(logging.Formatter):
-        class Color:
-            INFO = "\033[94m"  # Light Blue
-            WARNING = "\033[93m"  # Yellow
-            ERROR = "\033[91m"  # Red
-            RESET = "\033[0m"  # Reset to default
-
-        def format(self, record):
-            if record.levelno >= logging.ERROR:
-                record.msg = f"{self.Color.ERROR}{record.msg}{self.Color.RESET}"
-            elif record.levelno >= logging.WARNING:
-                record.msg = f"{self.Color.WARNING}{record.msg}{self.Color.RESET}"
-            else:
-                record.msg = f"{self.Color.INFO}{record.msg}{self.Color.RESET}"
-            
-            return super().format(record)
-        
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
@@ -207,8 +209,8 @@ class VcpkgDataParser:
 
         old = copy.deepcopy(results)
 
-        with open(path) as f:
-            data = json.load(f)
+        with open(path) as fp:
+            data = json.load(fp)
             # direct dependencies
             for dep in data.get('dependencies', []):
                 results.add(dep if isinstance(dep, str) else dep['name'])
@@ -328,22 +330,25 @@ class VcpkgGitPicker:
         necessary_commits = self._git_parser.find_ordered_necessary_commits(necessary_ports)
 
         # read microsoft/vcpkg baseline versions
-        with open(self._msft_path_builder.baseline_json()) as f:
-            msft_versions = json.load(f)['default']
+        with open(self._msft_path_builder.baseline_json()) as fp:
+            msft_versions = json.load(fp)['default']
         
         # switch to my branch
         shell(args=['git', 'checkout', self._args.my_vcpkg_branch])
 
         # read my vcpkg baseline versions
-        with open(self._msft_path_builder.baseline_json()) as f:
-            my_versions = json.load(f)['default']
+        with open(self._my_path_builder.baseline_json()) as fp:
+            my_versions = json.load(fp)['default']
 
         # copy
         for commit in necessary_commits:
+            cwd = os.getcwd()
+            os.chdir(self._msft_path_builder.root_dir())
             info = shell(
                 silent=True, env=RUN_GIT_ENV, stdout=subprocess.PIPE, text=True,
                 args=['git', 'log', '-1', '--stat', '--date=iso', commit.hash]
             ).stdout
+            os.chdir(cwd)
 
             port = self.find_port(output=info, ports=necessary_ports)
             if port not in necessary_ports:
@@ -372,12 +377,12 @@ class VcpkgGitPicker:
                 modified = True
                 my_versions[port] = msft_versions[port]
                 logging.warning('update versions/baseline.json')
-                with open(self._my_path_builder.baseline_json(), mode='w') as f:
-                    json.dump({'default': my_versions}, indent=4, ensure_ascii=True, sort_keys=True)
+                with open(self._my_path_builder.baseline_json(), mode='w') as fp:
+                    json.dump({'default': my_versions}, fp, indent=4, ensure_ascii=True, sort_keys=True)
 
             # commit
             if modified:
-                logging.info('%s\n%s', port, info)
+                logging.info('%s%s%s\n%s', Color.WARNING, port, Color.RESET, info)
                 necessary_ports.remove(port)
                 shell(args=['git', 'add', '.'])
                 shell(args=['git', 'commit', '-m', commit.message, '--author', commit.author])
