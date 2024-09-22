@@ -7,13 +7,15 @@ import json
 import logging
 import re
 import os
+import shutil
 import subprocess
 
 
 # my branch name
 MY_BRANCH = 'main'
-# microsoft/vcpkg -> my temp branch
-MSFT_BRANCH = 'msft'
+
+# default microsoft/vcpkg git clone dir
+MICROSOFT_VCPKG_ROOT_DIR = 'downloads/vcpkg'
 
 # default microsoft/vcpkg git repo url
 MICROSOFT_VCPKG_URL = 'https://github.com/microsoft/vcpkg.git'
@@ -31,7 +33,9 @@ GitCommitInfo = collections.namedtuple(
     'GitCommitInfo',
     (
         'hash',
-        'datetime'
+        'datetime',
+        'author',
+        'message'
     )
 )
 
@@ -39,6 +43,7 @@ GitCommitInfo = collections.namedtuple(
 CliArgs = collections.namedtuple(
     'CliArgs',
     (
+        'msft_vcpkg_root_dir',
         'msft_vcpkg_url',
         'msft_vcpkg_branch',
         'msft_vcpkg_baseline',
@@ -84,6 +89,13 @@ def parse_cli_args() -> CliArgs:
     logging.info(inspect.currentframe().f_code.co_name)
 
     arg_parser = argparse.ArgumentParser(description="pick port from microsoft/vcpkg")
+
+    arg_parser.add_argument(
+        '--msft-vcpkg-root-dir',
+        type=str,
+        default=MICROSOFT_VCPKG_ROOT_DIR,
+        help=f'microsoft/vcpkg git clone dir (default: {MICROSOFT_VCPKG_ROOT_DIR})'
+    )
         
     arg_parser.add_argument(
         '--msft-vcpkg-url',
@@ -122,7 +134,7 @@ def parse_cli_args() -> CliArgs:
     args = arg_parser.parse_args()
 
     return CliArgs(
-        msft_vcpkg_url=args.msft_vcpkg_url, msft_vcpkg_branch=args.msft_vcpkg_branch,
+        msft_vcpkg_root_dir=args.msft_vcpkg_root_dir, msft_vcpkg_url=args.msft_vcpkg_url, msft_vcpkg_branch=args.msft_vcpkg_branch,
         msft_vcpkg_baseline=args.msft_vcpkg_baseline, my_vcpkg_branch=args.my_vcpkg_branch, pick_port=args.pick_port
     )
 
@@ -136,31 +148,35 @@ def shell(args, silent=False, **kwargs):
 
 # build vpckg paths
 class VcpkgPathBuilder:
-    def __init__(self):
+    def __init__(self, root_dir='.'):
+        self._root_dir = root_dir
         self._vcpkg_json_name = 'vcpkg.json'
         self._ports_dir_name = 'ports'
         self._versions_dir_name = 'versions'
         self._baseline_json_name = 'baseline.json'
 
-    # ports/
+    def root_dir(self) -> str:
+        return self._root_dir
+
+    # {root_dir}/ports/
     def ports(self) -> str:
-        return f'{self._ports_dir_name}'
+        return f'{self._root_dir}/{self._ports_dir_name}'
 
-    # ports/{name}
+    # {root_dir}/ports/{name}
     def port(self, port) -> str:
-        return f'{self._ports_dir_name}/{port}'
+        return f'{self._root_dir}/{self._ports_dir_name}/{port}'
 
-    # ports/{name}/vcpkg.json
+    # {root_dir}/ports/{name}/vcpkg.json
     def vcpkg_json(self, port: str) -> str:
-        return f'{self._ports_dir_name}/{port}/{self._vcpkg_json_name}'
+        return f'{self._root_dir}/{self._ports_dir_name}/{port}/{self._vcpkg_json_name}'
 
-    # versions/{prefix}-/{name}.json
+    # {root_dir}/versions/{prefix}-/{name}.json
     def versions_json(self, port: str) -> str:
-        return f'{self._versions_dir_name}/{port[:1]}-/{port}.json'
+        return f'{self._root_dir}/{self._versions_dir_name}/{port[:1]}-/{port}.json'
 
-    # versions/baseline.json
+    # {root_dir}/versions/baseline.json
     def baseline_json(self) -> str:
-        return f'{self._versions_dir_name}/{self._baseline_json_name}'
+        return f'{self._root_dir}/{self._versions_dir_name}/{self._baseline_json_name}'
 
 
 # parse vcpkg port's relationships
@@ -240,55 +256,60 @@ class VcpkgGitParser:
             silent=True, env=RUN_GIT_ENV, stdout=subprocess.PIPE, text=True,
             args=['git', 'log', '-1', '--date=format:%Y-%m-%d %H:%M:%S', '--pretty=%ad', '--date=iso', target]
         ).stdout.strip()
+        commit_author = shell(
+            silent=True, stdout=subprocess.PIPE, text=True,
+            args=['git', 'log', '-1', '--pretty=format:%an <%ae>', target]
+        ).stdout.strip()
+        commit_message = shell(
+            silent=True, stdout=subprocess.PIPE, text=True,
+            args=['git', 'log', '-1', '--pretty=%s', target]
+        ).stdout.strip()
 
         if cwd != os.getcwd():
             os.chdir(cwd)
 
-        return GitCommitInfo(hash=commit_hash, datetime=commit_datetime)
+        return GitCommitInfo(hash=commit_hash, datetime=commit_datetime, author=commit_author, message=commit_message)
     
 
 # git cherry-pick and auto fix conflicts
 class VcpkgGitPicker:
     def __init__(self, args: CliArgs):
         self._args = args
-        self._path_builder = VcpkgPathBuilder()
-        self._data_parser = VcpkgDataParser(self._path_builder)
-        self._git_parser = VcpkgGitParser(self._path_builder)
+        self._my_path_builder = VcpkgPathBuilder()
+        self._msft_path_builder = VcpkgPathBuilder(args.msft_vcpkg_root_dir)
+        self._data_parser = VcpkgDataParser(self._msft_path_builder)
+        self._git_parser = VcpkgGitParser(self._msft_path_builder)
 
-    # add microsoft/vcpkg to git remote and check a branch from its branch 
+    # clone microsoft/vcpkg
     def update_msft(self):
         logging.info(inspect.currentframe().f_code.co_name)
+
+        cwd = os.getcwd()
+
+        root_dir = self._msft_path_builder.root_dir()
+        os.makedirs(os.path.dirname(root_dir), exist_ok=True)
         
-        remote = MSFT_BRANCH
-        branch = remote
-        remote_msft_key = f'remote "{remote}"'
-        branch_msft_key = f'branch "{branch}"'
-
-        git_config = configparser.ConfigParser()
-        git_config.read('.git/config')
-
-        try:
-            git_config[remote_msft_key]
-        except Exception as _:
-            # add remote
-            shell(args=['git', 'remote', 'add', remote, self._args.msft_vcpkg_url])
-            # fetch remote branch
-            shell(args=['git', 'fetch', remote, self._args.msft_vcpkg_branch])
-
-        try:
-            git_config[branch_msft_key]
-        except Exception as _:
-            # new branch
-            shell(args=['git', 'checkout', '-b', branch, f'{remote}/{self._args.msft_vcpkg_branch}'])
+        if not os.path.exists(root_dir):
+            # clone
+            shell(args=['git', 'clone', self._args.msft_vcpkg_url, root_dir])
+            os.chdir(root_dir)
         else:
-            # switch branch
-            shell(args=['git', 'checkout', branch])
-
+            # fetch
+            os.chdir(root_dir)
+            shell(args=['git', 'fetch'])
+        
+        # switch branch
+        current_branch = shell(args=['git', 'rev-parse', '--abbrev-ref', 'HEAD'], stdout=subprocess.PIPE, text=True).stdout.strip()
+        if self._args.msft_vcpkg_branch != current_branch:
+            shell(args=['git', 'checkout', self._args.msft_vcpkg_branch])
+        
         # reset to version
         shell(args=['git', 'reset', '--hard', self._args.msft_vcpkg_baseline])
 
+        os.chdir(cwd)
+
     # find port from output text
-    def find_port(self, output) -> str:
+    def find_port(self, output: str, ports: set) -> str:
         for line in output.split('\n'):
             if not re.search(r'(\S+)\s+\|\s+(\d+)\s+([\+\-]+)', line):
                 continue
@@ -296,81 +317,70 @@ class VcpkgGitPicker:
             if not matches:
                 matches = re.search(r'versions/[0-1a-z]-/(.*)\.json', line)
             if matches:
-                return matches.group(1)
+                p = matches.group(1)
+                if p in ports:
+                    return p
         return ''
-    
-    # auto fix conflicts
-    def fix_conflicts(self, my_versions, msft_versions, port, output):
-        # def is_port_files(port, line) -> bool:
-        #     return any((
-        #         self._path_builder.baseline_json() in line,
-        #         self._path_builder.versions_json(port) in line,
-        #         line.startswith(self._path_builder.port(port))
-        #     ))
 
-        my_versions[port] = msft_versions[port]
-        with open(self._path_builder.baseline_json(), 'w') as f:
-            json.dump({'default': my_versions}, f, sort_keys=True, indent=4)
-        
-        # adds = [self._path_builder.baseline_json()]
-        # removes = []
-        if 'CONFLICT' in output:
-            shell(args=['git', 'add', '.'])
-            shell(args=['git', 'cherry-pick', '--continue', '--no-edit'])
-        #     stdout = shell(args=['git', 'status'], stdout=subprocess.PIPE, text=True).stdout.strip()
-        #     for line in stdout.split('\n'):
-        #         if 'deleted' in line or 'modified' in line:
-        #             path = line.partition(':')[-1].strip()
-        #             if is_port_files(port, path):
-        #                 adds.append(path)
-        #             else:
-        #                 removes.append(path)
-
-        # if len(removes) > 0:
-        #     args = ['git', 'rm']
-        #     args += removes
-        #     shell(args)
-        # if len(adds) > 0:
-        #     args = ['git', 'add']
-        #     args += adds
-        #     shell(args)
-        # if len(removes) > 0 or len(adds) > 0:
-        #     shell(args=['git', 'cherry-pick', '--continue'])
-
-    # cherry-pick and fix conflicts
-    def cherry_pick(self):
+    # copy pick
+    def copy_pick(self):
         necessary_ports = self._data_parser.find_necessary(self._args.pick_port)
         necessary_commits = self._git_parser.find_ordered_necessary_commits(necessary_ports)
 
         # read microsoft/vcpkg baseline versions
-        with open(self._path_builder.baseline_json()) as f:
+        with open(self._msft_path_builder.baseline_json()) as f:
             msft_versions = json.load(f)['default']
         
         # switch to my branch
         shell(args=['git', 'checkout', self._args.my_vcpkg_branch])
 
         # read my vcpkg baseline versions
-        with open(self._path_builder.baseline_json()) as f:
+        with open(self._msft_path_builder.baseline_json()) as f:
             my_versions = json.load(f)['default']
 
-        # read exists commits
-        exists_commits = set(shell(args=['git', 'log', '--pretty=format:"%H"'], stdout=subprocess.PIPE, text=True).stdout.strip().split())
-
-        # cherry-pick commit by commit
+        # copy
         for commit in necessary_commits:
-            if commit.hash in exists_commits:
-                continue
             info = shell(
                 silent=True, env=RUN_GIT_ENV, stdout=subprocess.PIPE, text=True,
                 args=['git', 'log', '-1', '--stat', '--date=iso', commit.hash]
             ).stdout
 
-            port = self.find_port(output=info)
-            logging.info('%s\n%s', port, info)
+            port = self.find_port(output=info, ports=necessary_ports)
+            if port not in necessary_ports:
+                continue
+        
+            modified = False
+            # copy ports/{name}
+            my_port_data_path = self._my_path_builder.port(port)
+            msft_port_data_path = self._msft_path_builder.port(port)
+            if os.path.exists(msft_port_data_path) and not os.path.exists(my_port_data_path):
+                modified = True
+                logging.warning('copy %s -> %s', msft_port_data_path, my_port_data_path)
+                shutil.copytree(msft_port_data_path, my_port_data_path)
 
-            sh = shell(args=['git', 'cherry-pick', commit.hash], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            output = f'{sh.stdout.strip()}\n{sh.stderr.strip()}'
-            self.fix_conflicts(my_versions, msft_versions, port, output)
+            # copy versions/{prefix}-/{name}.json
+            my_port_version_path = self._my_path_builder.versions_json(port)
+            msft_port_version_data = self._msft_path_builder.versions_json(port)
+            os.makedirs(os.path.dirname(my_port_version_path), exist_ok=True)
+            if os.path.exists(msft_port_version_data) and not os.path.exists(my_port_version_path):
+                modified = True
+                logging.warning('copy %s -> %s', msft_port_version_data, my_port_version_path)
+                shutil.copyfile(msft_port_version_data, my_port_version_path)
+
+            # update baseline version
+            if json.dumps(my_versions.get(port, {}), sort_keys=True) != json.dumps(msft_versions.get(port, {}), sort_keys=True):
+                modified = True
+                my_versions[port] = msft_versions[port]
+                logging.warning('update versions/baseline.json')
+                with open(self._my_path_builder.baseline_json(), mode='w') as f:
+                    json.dump({'default': my_versions}, indent=4, ensure_ascii=True, sort_keys=True)
+
+            # commit
+            if modified:
+                logging.info('%s\n%s', port, info)
+                necessary_ports.remove(port)
+                shell(args=['git', 'add', '.'])
+                shell(args=['git', 'commit', '-m', commit.message, '--author', commit.author])
 
 
 # main entry
@@ -385,7 +395,7 @@ def main():
 
     picker = VcpkgGitPicker(args)
     picker.update_msft()
-    picker.cherry_pick()
+    picker.copy_pick()
 
 
 # entry point
