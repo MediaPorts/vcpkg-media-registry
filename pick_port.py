@@ -385,7 +385,7 @@ class VcpkgGitPicker:
                 logging.info('%s%s%s\n%s', Color.WARNING, port, Color.RESET, info)
                 necessary_ports.remove(port)
                 shell(args=['git', 'add', '.'])
-                shell(args=['git', 'commit', '-m', commit.message, '--author', commit.author])
+                shell(args=['git', 'commit', '-m', commit.message, '--author', commit.author, '--date', commit.datetime], env=RUN_GIT_ENV)
 
 
 # main entry
