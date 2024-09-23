@@ -232,6 +232,8 @@ class VcpkgGitParser:
 
     # get commits' info ordered by commit datetime
     def find_ordered_necessary_commits(self, ports: set) -> list:
+        logging.info(inspect.currentframe().f_code.co_name)
+
         results = set()
 
         for port in ports:
@@ -242,6 +244,8 @@ class VcpkgGitParser:
         
     # get git commit hash and datetime
     def get_commit_info(self, path: str) -> GitCommitInfo:
+        logging.info("%s(%s)", inspect.currentframe().f_code.co_name, path)
+
         cwd = os.getcwd()
         if os.path.isfile(path):
             os.chdir(os.path.dirname(path))
@@ -312,6 +316,8 @@ class VcpkgGitPicker:
 
     # find port from output text
     def find_port(self, output: str, ports: set) -> str:
+        logging.info(inspect.currentframe().f_code.co_name)
+
         for line in output.split('\n'):
             if not re.search(r'(\S+)\s+\|\s+(\d+)\s+([\+\-]+)', line):
                 continue
@@ -326,6 +332,8 @@ class VcpkgGitPicker:
 
     # copy pick
     def copy_pick(self):
+        logging.info(inspect.currentframe().f_code.co_name)
+
         necessary_ports = self._data_parser.find_necessary(self._args.pick_port)
         necessary_commits = self._git_parser.find_ordered_necessary_commits(necessary_ports)
 
